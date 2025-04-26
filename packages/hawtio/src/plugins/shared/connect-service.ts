@@ -426,14 +426,14 @@ class ConnectService implements IConnectService {
     return response
       .text()
       .then(txt => {
-        const json = JSON.parse(txt)
-        // exception will propagate to .catch()
-        return json['reason'] === reason
-      })
-      .catch(_ => {
-        // Otherwise expect a response header containing a forbidden reason
-        return response.headers.get('Hawtio-Forbidden-Reason') === reason
-      })
+        try {
+          const json = JSON.parse(txt);
+          return json['reason'] === reason;
+        } catch (_) {
+          // Otherwise expect a response header containing a forbidden reason
+          return response.headers.get('Hawtio-Forbidden-Reason') === reason;
+        }
+      });
   }
 
   connect(connection: Connection, current = false) {
