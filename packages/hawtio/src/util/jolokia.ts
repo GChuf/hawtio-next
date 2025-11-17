@@ -112,9 +112,6 @@ export function onGenericSuccess<S, O extends BaseRequestOptions>(successFn: S, 
 export function onGenericSuccessAndError<S, E, O extends BaseRequestOptions>(successFn: S, errorFn: E, options?: O): O {
   const defaultOptions: BaseRequestOptions = {
     method: 'post',
-    mimeType: 'application/json',
-    // the default (unsorted) order is important for Karaf runtime
-    canonicalNaming: false,
   }
   return Object.assign({}, defaultOptions, options, {
     success: successFn,
