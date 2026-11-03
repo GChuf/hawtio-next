@@ -9,6 +9,8 @@ import {
   onListSuccessAndError,
   onSearchSuccessAndError,
   onVersionSuccessAndError,
+  sendProcessingParametersInBody,
+  splitProcessingParameters,
 } from '@hawtiosrc/util/jolokia'
 import { isObject, isString } from '@hawtiosrc/util/objects'
 import { parseBoolean } from '@hawtiosrc/util/strings'
@@ -49,7 +51,6 @@ export const DEFAULT_MAX_DEPTH = 7
 export const DEFAULT_MAX_COLLECTION_SIZE = 50000
 const DEFAULT_JOLOKIA_OPTIONS: SimpleRequestOptions = {
   method: 'post',
-  mimeType: 'application/json',
   maxCollectionSize: DEFAULT_MAX_COLLECTION_SIZE,
   maxDepth: DEFAULT_MAX_DEPTH,
   canonicalNaming: false,
@@ -332,7 +333,8 @@ class JolokiaService implements IJolokiaService {
       return new DummyJolokia()
     }
 
-    const options = await this.loadJolokiaOptions()
+    // processing parameters are sent in the POST body of each request instead of in the URL
+    const { parameters, options } = splitProcessingParameters(await this.loadJolokiaOptions())
     if (!options.fetchError) {
       // Default fetch() error handler (called "fetchError" in Jolokia 2.1.x, called "ajaxError" in 2.0.x and earlier)
       options.fetchError = this.fetchError()
@@ -340,7 +342,7 @@ class JolokiaService implements IJolokiaService {
 
     await this.configureAuthorization(options)
 
-    const jolokia = new Jolokia(options)
+    const jolokia = sendProcessingParametersInBody(new Jolokia(options), parameters)
     jolokia.stop()
 
     // let's check if we can call faster jolokia.list()

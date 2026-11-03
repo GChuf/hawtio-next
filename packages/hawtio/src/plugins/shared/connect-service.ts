@@ -577,7 +577,6 @@ class ConnectService implements IConnectService {
       return new Jolokia({
         url: this.getJolokiaUrl(connection),
         method: 'post',
-        mimeType: 'application/json',
         username: connection.username,
         password: connection.password,
       })
@@ -586,7 +585,6 @@ class ConnectService implements IConnectService {
     return new Jolokia({
       url: this.getJolokiaUrl(connection),
       method: 'post',
-      mimeType: 'application/json',
     })
   }
 
