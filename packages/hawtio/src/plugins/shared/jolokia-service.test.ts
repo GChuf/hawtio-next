@@ -68,14 +68,7 @@ describe('JolokiaService', () => {
         return null
       },
     )
-    Jolokia.prototype.version = jest.fn((opts?: SimpleRequestOptions) => {
-      ;(opts!.success! as SimpleResponseCallback)({
-        agent: 'test',
-        protocol: '7.3',
-        info: {},
-        config: {},
-      })
-    })
+    mockVersionResponse('7.3')
 
     await expect(jolokiaService.getJolokia()).resolves.not.toThrow()
     await expect(jolokiaService.getListMethod()).resolves.toEqual(JolokiaListMethod.OPTIMISED)
@@ -83,14 +76,7 @@ describe('JolokiaService', () => {
 
   test('getJolokia - optimised (native)', async () => {
     jolokiaService.getJolokiaUrl = jest.fn(async () => '/test')
-    Jolokia.prototype.version = jest.fn((opts?: SimpleRequestOptions) => {
-      ;(opts!.success! as SimpleResponseCallback)({
-        agent: 'test',
-        protocol: '8.0',
-        info: {},
-        config: {},
-      })
-    })
+    mockVersionResponse('8.0')
 
     await expect(jolokiaService.getJolokia()).resolves.not.toThrow()
     await expect(jolokiaService.getListMethod()).resolves.toEqual(JolokiaListMethod.NATIVE)
@@ -131,14 +117,7 @@ describe('JolokiaService', () => {
       )
       return null
     })
-    Jolokia.prototype.version = jest.fn((opts?: SimpleRequestOptions) => {
-      ;(opts!.success! as SimpleResponseCallback)({
-        agent: 'test',
-        protocol: '7.3',
-        info: {},
-        config: {},
-      })
-    })
+    mockVersionResponse('7.3')
 
     await expect(jolokiaService.getJolokia()).resolves.not.toThrow()
     await expect(jolokiaService.getListMethod()).resolves.toEqual(JolokiaListMethod.DEFAULT)
@@ -162,6 +141,7 @@ describe('JolokiaService', () => {
         ignoreErrors: true,
       },
     })
+    await expect(jolokiaService.getListMethod()).resolves.toEqual(JolokiaListMethod.NATIVE)
   })
 
   test('getJolokia - agent does not respond with JSON by default', async () => {
