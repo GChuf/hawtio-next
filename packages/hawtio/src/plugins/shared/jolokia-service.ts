@@ -51,6 +51,7 @@ const DEFAULT_JOLOKIA_OPTIONS: SimpleRequestOptions = {
   method: 'post',
   // send processing parameters in the POST body instead of in the URL (mimeType is always sent in the URL)
   processingParametersInBody: true,
+  // left out when the agent responds with JSON by default (see createJolokia())
   mimeType: 'application/json',
   maxCollectionSize: DEFAULT_MAX_COLLECTION_SIZE,
   maxDepth: DEFAULT_MAX_DEPTH,
@@ -342,8 +343,16 @@ class JolokiaService implements IJolokiaService {
 
     await this.configureAuthorization(options)
 
-    const jolokia = new Jolokia(options)
+    // Jolokia agents since 2.1.0 respond with JSON by default, older ones only with mimeType=application/json in
+    // the URL. The first request is sent without mimeType and its response tells whether mimeType is needed.
+    let jolokia = new Jolokia({ ...options, mimeType: undefined })
     jolokia.stop()
+    const json = await this.checkVersion(jolokia)
+    if (!json) {
+      log.debug('Jolokia agent does not respond with JSON by default, mimeType is sent in the URL')
+      jolokia = new Jolokia(options)
+      jolokia.stop()
+    }
 
     // let's check if we can call faster jolokia.list()
     await this.checkListOptimisation(jolokia)
@@ -459,6 +468,30 @@ class JolokiaService implements IJolokiaService {
       // Resolve any waiting promise that might be blocked by the error
       resolve?.()
     }
+  }
+
+  /**
+   * Sends a `version` request and checks whether the Jolokia agent responds with JSON. A failed request is handled
+   * like any other failed Jolokia request.
+   *
+   * @param jolokia Jolokia instance to use
+   * @returns whether the response was JSON
+   */
+  private async checkVersion(jolokia: IJolokiaSimple): Promise<boolean> {
+    let response: Response
+    try {
+      response = (await jolokia.request({ type: 'version' }, { method: 'post', resolve: 'response' })) as Response
+    } catch (error) {
+      // fetch() rejects with TypeError or DOMException
+      this.fetchError()(null, error as DOMException | TypeError)
+      return false
+    }
+    if (response.status !== 200) {
+      this.fetchError()(response, response.statusText)
+      return false
+    }
+
+    return response.headers.get('content-type')?.startsWith('application/json') ?? false
   }
 
   /**

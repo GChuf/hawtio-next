@@ -3,6 +3,32 @@ import { DEFAULT_MAX_COLLECTION_SIZE, DEFAULT_MAX_DEPTH, JolokiaListMethod, jolo
 import { hawtio } from '@hawtiosrc/core'
 import * as jolokia from 'jolokia.js'
 import Jolokia, { SimpleRequestOptions, SimpleResponseCallback } from '@jolokia.js/simple'
+import fetchMock from 'jest-fetch-mock'
+
+/**
+ * Mocks the response to the first request, which is the `version` request sent when a Jolokia instance is created.
+ */
+function mockVersionResponse(protocol: string, contentType = 'application/json') {
+  fetchMock.mockResponseOnce(
+    JSON.stringify({
+      request: { type: 'version' },
+      value: { agent: 'test', protocol, info: {}, config: {} },
+      status: 200,
+      timestamp: 123456789,
+    }),
+    { headers: { 'Content-Type': contentType } },
+  )
+}
+
+/**
+ * Sends a request with the Jolokia instance of the service and returns the URL and body of the sent HTTP request.
+ */
+async function sendRequest(): Promise<{ url: string; body: unknown }> {
+  const jolokia = await jolokiaService.getJolokia()
+  await jolokia.request({ type: 'search', mbean: '*:*' }, { method: 'post' })
+  const [url, init] = fetchMock.mock.calls[fetchMock.mock.calls.length - 1]!
+  return { url: url as string, body: JSON.parse((init as RequestInit).body as string) }
+}
 
 describe('JolokiaService', () => {
   beforeEach(() => {
@@ -116,6 +142,43 @@ describe('JolokiaService', () => {
 
     await expect(jolokiaService.getJolokia()).resolves.not.toThrow()
     await expect(jolokiaService.getListMethod()).resolves.toEqual(JolokiaListMethod.DEFAULT)
+  })
+
+  test('getJolokia - agent responds with JSON by default', async () => {
+    jolokiaService.getJolokiaUrl = jest.fn(async () => '/test')
+    mockVersionResponse('8.0')
+
+    const { url, body } = await sendRequest()
+    // the first request is the version request, which is sent without mimeType
+    expect(fetchMock.mock.calls[0]![0]).toEqual('/test/')
+    expect(url).toEqual('/test/')
+    expect(body).toEqual({
+      type: 'search',
+      mbean: '*:*',
+      config: {
+        maxCollectionSize: DEFAULT_MAX_COLLECTION_SIZE,
+        maxDepth: DEFAULT_MAX_DEPTH,
+        canonicalNaming: false,
+        ignoreErrors: true,
+      },
+    })
+  })
+
+  test('getJolokia - agent does not respond with JSON by default', async () => {
+    jolokiaService.getJolokiaUrl = jest.fn(async () => '/test')
+    mockVersionResponse('7.3', 'text/plain')
+
+    const { url } = await sendRequest()
+    expect(fetchMock.mock.calls[0]![0]).toEqual('/test/')
+    expect(url).toEqual('/test/?mimeType=application/json')
+  })
+
+  test('getJolokia - version request fails', async () => {
+    jolokiaService.getJolokiaUrl = jest.fn(async () => '/test')
+    fetchMock.mockResponseOnce('', { status: 500 })
+
+    const { url } = await sendRequest()
+    expect(url).toEqual('/test/?mimeType=application/json')
   })
 
   test('getFullJolokiaUrl', async () => {
