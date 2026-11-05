@@ -8,7 +8,6 @@ import {
   onExecuteSuccessAndError,
   onListSuccessAndError,
   onSearchSuccessAndError,
-  onVersionSuccessAndError,
 } from '@hawtiosrc/util/jolokia'
 import { isObject, isString } from '@hawtiosrc/util/objects'
 import { parseBoolean } from '@hawtiosrc/util/strings'
@@ -233,19 +232,13 @@ class JolokiaService implements IJolokiaService {
     sessionStorage.removeItem('logout.reason')
 
     // Initialising Jolokia instance
-    this.jolokia = this.createJolokia(jolokia => {
-      // Checking versions
-      jolokia.version(
-        onVersionSuccessAndError(
-          (version: JolokiaResponseValue) => {
-            log.info('Jolokia version:', {
-              client: jolokia.CLIENT_VERSION,
-              agent: (version as VersionResponseValue).agent,
-            })
-          },
-          error => log.error('Failed to fetch Jolokia version:', error),
-        ),
-      )
+    this.jolokia = this.createJolokia((jolokia, version) => {
+      // Checking versions (the agent version comes from the "version" request sent by createJolokia())
+      if (version) {
+        log.info('Jolokia version:', { client: jolokia.CLIENT_VERSION, agent: version.agent })
+      } else {
+        log.error('Failed to fetch Jolokia version')
+      }
       // Start Jolokia
       const updateRate = this.loadUpdateRate()
       jolokia.start(updateRate)
@@ -328,7 +321,9 @@ class JolokiaService implements IJolokiaService {
     })
   }
 
-  private async createJolokia(postCreate?: (jolokia: IJolokiaSimple) => void): Promise<IJolokiaSimple> {
+  private async createJolokia(
+    postCreate?: (jolokia: IJolokiaSimple, version?: VersionResponseValue) => void,
+  ): Promise<IJolokiaSimple> {
     const jolokiaUrl = await this.getJolokiaUrl()
     if (!jolokiaUrl) {
       log.debug('Use dummy Jolokia')
@@ -359,7 +354,7 @@ class JolokiaService implements IJolokiaService {
 
     // Run any post-create processing that should be done before the resolved
     // Jolokia is returned
-    postCreate?.(jolokia)
+    postCreate?.(jolokia, version)
 
     return jolokia
   }

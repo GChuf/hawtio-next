@@ -161,6 +161,17 @@ describe('JolokiaService', () => {
     expect(url).toEqual('/test/?mimeType=application/json')
   })
 
+  test('getJolokia - sends a single version request', async () => {
+    jolokiaService.getJolokiaUrl = jest.fn(async () => '/test')
+    mockVersionResponse('8.0')
+
+    await sendRequest()
+    const versionRequests = fetchMock.mock.calls.filter(([, init]) =>
+      String((init as RequestInit | undefined)?.body).includes('"type":"version"'),
+    )
+    expect(versionRequests).toHaveLength(1)
+  })
+
   test('getFullJolokiaUrl', async () => {
     hawtio.getBasePath = jest.fn(() => '/hawtio')
 
